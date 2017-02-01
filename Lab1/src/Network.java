@@ -54,25 +54,28 @@ public class Network {
 
     }
 
-    public double test(ArrayList<ArrayList<Double>> datas, ArrayList<ArrayList<Double>> data_labels) {
+    public double test(ArrayList<ArrayList<Double>> datas, ArrayList<Double> data_labels,
+                       ArrayList<String> labels, boolean print) {
 
         double right = 0.0;
 
         for (int i = 0; i < datas.size(); i++) {
             ArrayList<Double> data = datas.get(i);
-            ArrayList<Double> data_label = data_labels.get(i);
+            double data_label = data_labels.get(i);
 
             forwardPropagation(data);
 
-            boolean flag = true;
-            for (int j = 0; j < data_label.size(); j++) {
-                if (Math.abs(data_label.get(j) - perceptrons.get(perceptrons.size() - 1).get(j).fx) > 0.5) {
-                    flag = false;
-                    break;
-                }
+            int predict = perceptrons.get(perceptrons.size() - 1).get(0).fx < 0.5 ? 0 : 1;
+            if (Math.abs(predict - data_label) < 0.5) {
+                right += 1;
             }
-            if (flag) right += 1.0;
+
+            // Print the label.
+            if (print) {
+                System.out.println(labels.get(predict));
+            }
         }
+
 
         return right / datas.size();
     }
