@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
 
-public class Lab1 {
+public class Lab2 {
 
     protected static final boolean debugFlag = true;
 
