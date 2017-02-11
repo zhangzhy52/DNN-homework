@@ -9,9 +9,14 @@ public class Network {
 
     public ArrayList<ArrayList<Perceptron>> perceptrons = new ArrayList<>();
 
-    public double rate;
+    public double rate = 0.1;
+    public double dropout_p = 1.1;
+    public double weight_decay = 0.04;
+    public double momentum = 0.1;
 
-    public Network(ArrayList<Integer> numUnits, double rate) {
+    private Random random = new Random();
+
+    public Network(ArrayList<Integer> numUnits, double rate, double dropout_p, double weight_decay, double momentum) {
 
         // Init perceptrons.
         for (int i = 0; i < numUnits.size(); i++) {
@@ -27,7 +32,7 @@ public class Network {
         }
 
         // Init weights.
-        Random random = new Random();
+
         for (int i = 0; i < perceptrons.size() - 1; i++) {
             for (int j = 0; j < perceptrons.get(i).size(); j++) {
                 for (int k = 0; k < perceptrons.get(i + 1).size(); k++) {
@@ -44,6 +49,9 @@ public class Network {
 
         // Learning rate.
         this.rate = rate;
+        this.dropout_p = dropout_p;
+        this.weight_decay = weight_decay;
+        this.momentum = momentum;
     }
 
 
@@ -95,13 +103,24 @@ public class Network {
             for (Perceptron p : perceptrons.get(i)) {
                 if (p.inputs.size() == 0) continue; // bias unit.
 
-                p.fx = 0;
+                // Dropout
+                if (i != perceptrons.size() - 1 && random.nextDouble() > dropout_p) {
+                    // Drop
+                    p.dropout = true;
+                    continue;
+                } else {
+                    // Keep
+                    p.dropout = false;
 
-                for (Weight weight : p.inputs) {
-                    p.fx += weight.input.fx * weight.value;
+                    p.fx = 0;
+
+                    for (Weight weight : p.inputs) {
+                        // If the input node is not dropped.
+                        if (!weight.input.dropout) p.fx += weight.input.fx * weight.value;
+                    }
+
+                    p.fx = sigmoid(p.fx);
                 }
-
-                p.fx = sigmoid(p.fx);
             }
         }
     }
@@ -116,10 +135,12 @@ public class Network {
         // Delta hidden layer.
         for (int i = perceptrons.size() - 2; i >= 0; i--) {
             for (Perceptron p : perceptrons.get(i)) {
+                if (p.dropout) continue;
+
                 p.delta = 0;
 
                 for (Weight w : p.outputs) {
-                    p.delta += w.output.delta * w.value;
+                    if (!w.output.dropout) p.delta += w.output.delta * w.value;
                 }
 
                 p.delta *= p.fx * ( 1- p.fx );
@@ -129,8 +150,14 @@ public class Network {
         // Upadte weights.
         for (int i = 0; i < perceptrons.size() - 1; i++) {
             for (Perceptron p : perceptrons.get(i)) {
+                if (p.dropout) continue;
+
                 for (Weight w : p.outputs) {
-                    w.value -= rate * p.fx * w.output.delta;
+                    if (!w.output.dropout) {
+                        w.delta = - rate * p.fx * w.output.delta - rate * weight_decay * w.value + momentum * w.delta;
+                        w.value += w.delta;
+                    }
+
                 }
             }
         }

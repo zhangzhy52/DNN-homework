@@ -6,6 +6,7 @@ public class Weight {
     public Perceptron output;
 
     public double value;
+    public double delta = 0.0;
 
     public Weight(double value) {
         this.value = value;

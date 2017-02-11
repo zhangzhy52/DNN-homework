@@ -10,6 +10,7 @@ public class Perceptron {
 
     public double fx = 1;
     public double delta = 0;
+    public boolean dropout = false;
 
     public Perceptron() {
 

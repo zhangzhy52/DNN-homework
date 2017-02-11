@@ -37,13 +37,13 @@ public class Lab2 {
         numUnits.add(dataReader1.numFeatures);
         numUnits.add(10);
         numUnits.add(1);
-        Network network = new Network(numUnits, 0.5);
+        Network network = new Network(numUnits, 0.5, 0.5, 0.0, 0.1);
 
         // Training process.
         double earlyStopAccuracy = 0.0;
         int earlyStopCount = 0;
 
-        for (int k = 0; k < 100; k++) {
+        for (int k = 0; k < 1000; k++) {
             for (int i = 0; i < dataReader1.data.size(); i++) {
                 ArrayList<Double> tmp = new ArrayList<>();
                 tmp.add(dataReader1.data_label.get(i));
@@ -59,7 +59,7 @@ public class Lab2 {
                 earlyStopCount = 0;
             } else {
                 earlyStopCount += 1;
-                if (earlyStopCount > 10) break;
+                if (earlyStopCount > 100) break;
             }
         }
 
