@@ -62,30 +62,35 @@ public class Network {
 
     }
 
-    public double test(ArrayList<ArrayList<Double>> datas, ArrayList<Double> data_labels,
-                       ArrayList<String> labels, boolean print) {
-
+    public double test(ArrayList<ArrayList<Double>> datas, ArrayList<ArrayList<Double>> data_labels) {
         double right = 0.0;
 
         for (int i = 0; i < datas.size(); i++) {
             ArrayList<Double> data = datas.get(i);
-            double data_label = data_labels.get(i);
+            ArrayList<Double> data_label = data_labels.get(i);
 
             forwardPropagation(data);
 
-            int predict = perceptrons.get(perceptrons.size() - 1).get(0).fx < 0.5 ? 0 : 1;
-            if (Math.abs(predict - data_label) < 0.5) {
-                right += 1;
-            }
+            if (data_label.get(outputIndex()) > 0.9) right += 1;
+        }
 
-            // Print the label.
-            if (print) {
-                System.out.println(labels.get(predict));
+        return right / datas.size();
+    }
+
+    private int outputIndex() {
+        double max = 0.0;
+        int index = 0;
+
+        ArrayList<Perceptron> layer = perceptrons.get(perceptrons.size() - 1);
+
+        for (int i = 0; i < layer.size(); i++) {
+            if (layer.get(i).fx > max) {
+                max = layer.get(i).fx;
+                index = i;
             }
         }
 
-
-        return right / datas.size();
+        return index;
     }
 
     private double sigmoid(double x) {

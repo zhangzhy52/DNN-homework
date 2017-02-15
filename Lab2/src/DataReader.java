@@ -64,7 +64,7 @@ public class DataReader {
                 ArrayList<Double> tmp_feature = new ArrayList<>(); // For ading data_feature
                 // padding number is  win/2 - e
 
-                for (int w = e - halfWindow; w < e + halfWindow; w++){
+                for (int w = e - halfWindow + 1; w < e + halfWindow; w++){
 
                     if ( w < 0 || w >= example.size())
                         tmp_feature.addAll(onehotCoding(numFeatures - 1, numFeatures));
