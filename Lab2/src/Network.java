@@ -69,7 +69,10 @@ public class Network {
             ArrayList<Double> data = datas.get(i);
             ArrayList<Double> data_label = data_labels.get(i);
 
+            double tmp = dropout_p;
+            dropout_p = 1.1;
             forwardPropagation(data);
+            dropout_p = tmp;
 
             if (data_label.get(outputIndex()) > 0.9) right += 1;
         }
@@ -88,8 +91,9 @@ public class Network {
                 max = layer.get(i).fx;
                 index = i;
             }
+//            System.out.print(layer.get(i).fx + " ");
         }
-
+//        System.out.println();
         return index;
     }
 
