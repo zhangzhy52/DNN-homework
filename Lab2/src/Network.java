@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Random;
 
 public class Network {
+    protected static final boolean ReLU = false;
 
     public ArrayList<ArrayList<Perceptron>> perceptrons = new ArrayList<>();
 
@@ -62,7 +63,8 @@ public class Network {
 
     }
 
-    public double test(ArrayList<ArrayList<Double>> datas, ArrayList<ArrayList<Double>> data_labels) {
+    public double test(ArrayList<ArrayList<Double>> datas, ArrayList<ArrayList<Double>> data_labels,
+                       ArrayList<String> labels, boolean print) {
         double right = 0.0;
 
         for (int i = 0; i < datas.size(); i++) {
@@ -75,6 +77,8 @@ public class Network {
             dropout_p = tmp;
 
             if (data_label.get(outputIndex()) > 0.9) right += 1;
+
+            if (print) System.out.println(labels.get(outputIndex()));
         }
 
         return right / datas.size();
@@ -128,6 +132,14 @@ public class Network {
                         if (!weight.input.dropout) p.fx += weight.input.fx * weight.value;
                     }
 
+                    // ReLU
+                    /*************************************/
+                    if (i == 1 && ReLU) {
+                        p.fx = p.fx > 0 ? p.fx : 0;
+                        continue;
+                    }
+                    /*************************************/
+
                     p.fx = sigmoid(p.fx);
                 }
             }
@@ -151,6 +163,14 @@ public class Network {
                 for (Weight w : p.outputs) {
                     if (!w.output.dropout) p.delta += w.output.delta * w.value;
                 }
+
+                // ReLu
+                /************************************/
+                if (i == 1 && ReLU) {
+                    p.delta *= p.fx > 0 ? 1 : 0;
+                    continue;
+                }
+                /************************************/
 
                 p.delta *= p.fx * ( 1- p.fx );
             }
