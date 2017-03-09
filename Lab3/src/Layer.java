@@ -6,22 +6,33 @@ import java.util.Vector;
 public class Layer {
 
     public String type; //type of layer
-    public double[][][][] kernel;  //channel* image_number* kernelSize * kernelSize
+    public double[][][][] kernel;  // kernelNum * channelnum * kernelSize * kernelSize
     public double[] bias;
+    
     public Size kernelSize;
-    public int kernelNum  = 20;
+    public int kernelNum  = 5;
+    
+    
     public Size outputSize;
     public int outMapNum;
 
     public int channelNum = 4;
 
-    public double[][][][] outMaps;
+    public double[][][][] outMaps; // outMapNum * channelNum *  outputSize.x * outputSize.y
     public double[][][][] error;
 
-    private Layer(){
+    public Layer(){
 
     }
 
+    
+    public static Layer buildInputLayer(Size mapSize) {
+		Layer layer = new Layer();
+		layer.type = "input";
+		layer.outMapNum = 1;// 
+		layer.outputSize = mapSize;//
+		return layer;
+    }
     public static Layer buildConvLayer(int outMapNum, Size kernelSize) {
         Layer layer = new Layer();
         layer.type = "conv";
@@ -32,9 +43,7 @@ public class Layer {
 
     public void initOutMaps() {
         this.outMaps = new double[outMapNum][channelNum][outputSize.x][outputSize.y];
-        for (int i = 0; i < outMapNum; i++)
-            for (int j = 0; j < channelNum; j++)
-                outMaps[i][j] = randomMatrix(kernelSize.x, kernelSize.y);
+
     }
 
     public void initKernel() {
@@ -67,8 +76,8 @@ public class Layer {
     }
 
     public static class Size{
-        public final int x;
-        public final int y;
+        public  int x;
+        public  int y;
         public Size(int x, int y)
         {
             this.x = x;

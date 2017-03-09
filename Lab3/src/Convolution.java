@@ -6,23 +6,59 @@ import java.util.List;
 public class Convolution {
 
 
+	public void createNextLayer(Layer preLayer ){
+		Layer currLayer =  new Layer();
+		currLayer.kernelSize = new Layer.Size(5,5);
+		currLayer.initKernel();
+		
+		currLayer.outputSize = new Layer.Size(preLayer.outputSize.x - currLayer.kernelSize.x + 1,
+				preLayer.outputSize.y - currLayer.kernelSize.y + 1);
+		
+		currLayer.outMapNum = preLayer.outMapNum * currLayer.kernelNum;
+		
+	}
+	
 
     private void forward(Layer prevLayer, Layer currLayer){
-        int channel = currLayer.channelNum;
+        
         int numKernel = currLayer.kernelNum;
-        int kernelSizeX = currLayer.kernelSize.x;
-        int kernelSizeY = currLayer.kernelSize.y;
-        currLayer.outputSize = new Size(prevLayer.outputSize.x - kernelSizeX, kernelSizeY);
+        int prevNum = prevLayer.outMapNum;
+        for (int i = 0;i < currLayer.outMapNum; i++){
+            for (int j = 0; j < currLayer.channelNum; j++){
+               
+                currLayer.outMaps[i][j] = convolve(prevLayer.outMaps[i/numKernel][j],
+                				currLayer.kernel[i/prevNum][j]);  
+            }
+        }
 
-        for ()
-            for (int j = 0; j < channel; j++)
-                for ()
-                    for()
-                    { new double[kernelNum][channelNum][kernelSize.x][kernelSize.y];
-                        new double[outMapNum][channelNum][outputSize.x][outputSize.y];
-                        currLayer.outMaps[][][][] = * currLayer.kernel[][j][][];
-                    }
-
+    }
+    
+    private void backprop(Layer nextLayer, Layer currLayer){
+    
+    	
+    }
+    
+   
+    private double[][] convolve (double[][]image, double[][]kernel ) // convolution
+    {
+    	int iRow = image.length;
+    	int iColumn = image[0].length;
+    	int kRow = kernel.length;
+    	int kColumn = kernel[0].length;
+    	
+    	double[][] result = new double[iRow - kRow + 1 ][ iColumn - kColumn + 1];
+    	for (int i = 0; i < iRow - kRow + 1; i++)
+    		for (int j = 0; j < iColumn - kColumn + 1; j++)
+    		{
+    			double tmp = 0;
+    			for (int x = i; x < i + kRow; x++)
+    				for (int y = j; y < j + kColumn; y++)
+    				{
+    					tmp += image[x][y] * kernel[x - i][y - j];
+    				}
+    			result[i][j] = tmp;
+    		}
+    	return result;
     }
 
 
@@ -51,6 +87,7 @@ public class Convolution {
             mLayers.add(layer);
             return this;
         }
+       
     }
 
 
