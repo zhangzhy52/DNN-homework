@@ -2,6 +2,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.swing.text.Position.Bias;
+
 
 
 public class Convolution {
@@ -24,27 +26,34 @@ public class Convolution {
     public void forward(Layer prevLayer, Layer currLayer){ // How to update bias?
 
         int numKernel = currLayer.kernelNum;
+        int outputX = currLayer.outputSize.x;
+        int outputY = currLayer.outputSize.y;
         for (int i = 0;i < currLayer.outMapNum; i++){
             for (int j = 0; j < currLayer.channelNum; j++){
 
                 currLayer.outMaps[i][j] = convolve(prevLayer.outMaps[i/numKernel][j],
                         currLayer.kernel[i % numKernel][j])  ;
-
-                //        matrixAdd(currLayer.outMaps, createConstantMatrix(currLayer.bias, row, col), true);
+                //True means take ReLu as the activation function.
+                matrixAdd(currLayer.outMaps[i][j],
+                        createConstantMatrix(currLayer.bias[i % numKernel][j], outputX, outputY), true);
             }
         }
 
     }
     //public double[][][][] error;   // outMapNum * channelNum *  outputSize.x * outputSize.y
-    //public double[][][][] kernel;  // kernelNum * channelnum * kernelSize * kernelSize
+    //public double[][][][] kernel;  // kernelNum * channelNum * kernelSize * kernelSize
+    //public double[][] bias; // kernelNum * channelNum;
     public void backprop(Layer prevLayer, Layer currLayer){
 
         int numKernel = currLayer.kernelNum;
         int kernelx = currLayer.kernelSize.x;
         int kernely = currLayer.kernelSize.y;
+
         double[][][][] dKernel = new double[numKernel][currLayer.channelNum][kernelx][kernely]; //store gradient
+        double[][] dBias = createConstantMatrix(0.0, numKernel, currLayer.channelNum);
+
         for (int i = 0; i < numKernel; i++)
-            for (int j =0; j < currLayer.channelNum; j++ ){
+            for (int j =0; j < currLayer.channelNum; j++){
                 dKernel[i][j] = createConstantMatrix(0.0, kernelx, kernely);
             }
 
@@ -53,6 +62,8 @@ public class Convolution {
             for (int j = 0; j < currLayer.channelNum; j++){
                 if (i % numKernel == 0)
                     prevLayer.setErrorZero(i/numKernel, j);
+
+
 
                 matrixAdd(prevLayer.error[i/numKernel][j] ,
                         convolve( zeroPadding(currLayer.error[i][j], kernelx, kernely),
@@ -63,12 +74,17 @@ public class Convolution {
                         convolve (prevLayer.outMaps[i/numKernel][j] , currLayer.error[i][j]),
                         false);
 
+                dBias[i % numKernel][j] += avgMatrix(currLayer.error[i][j]);
+
             }
-        // update kernel[][][][] of currLayer
+        // update kernel[][][][] and bias of currLayer
         for (int i = 0; i < numKernel; i++)
             for (int j = 0; j < currLayer.channelNum; j++){
                 constantTimeMatrix(-stepSize, dKernel[i][j]);
                 matrixAdd(currLayer.kernel[i][j],dKernel[i][j] , false);
+
+                // "-" if error = currentLabel - trueLabel;
+                currLayer.bias[i][j] -=  dBias[i][j]/ prevLayer.outMapNum;
             }
     }
 
@@ -161,6 +177,14 @@ public class Convolution {
         for (int i = 0 ; i < row; i++)
             for (int j = 0; j < col; j++)
                 matrix[i][j] *= number;
+    }
+
+    private double avgMatrix(double[][] matrix){
+        double sum = 0.0;
+        for (int i = 0; i < matrix.length; i++)
+            for (int j = 0; j < matrix[0].length; j++)
+                sum += matrix[i][j];
+        return sum/(matrix.length * matrix[0].length) ;
     }
 
 
