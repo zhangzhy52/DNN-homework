@@ -7,7 +7,7 @@ import java.util.Random;
 import java.util.Vector;
 
 public class Network {
-    protected static final boolean ReLU = false;
+    protected static final boolean ReLU = true;
 
     public ArrayList<ArrayList<Perceptron>> perceptrons = new ArrayList<>();
 
@@ -101,7 +101,7 @@ public class Network {
         return right / datas.size();
     }
 
-    private int outputIndex() {
+    public int outputIndex() {
         double max = 0.0;
         int index = 0;
 
@@ -122,7 +122,7 @@ public class Network {
         return (1/( 1 + Math.pow(Math.E,(-1*x))));
     }
 
-    private void forwardPropagation(Vector<Double> data) {
+    public void forwardPropagation(Vector<Double> data) {
         // Input layer.
         for (int i = 0; i < data.size(); i++) {
             perceptrons.get(0).get(i).fx = data.get(i);
@@ -163,7 +163,7 @@ public class Network {
         }
     }
 
-    private void backPropagation(Vector<Double> label) {
+    public void backPropagation(Vector<Double> label) {
         // Delta
         for (int i = 0; i < label.size(); i++) {	// Output layer.
             Perceptron p = perceptrons.get(perceptrons.size() - 1).get(i);
@@ -207,6 +207,15 @@ public class Network {
                 }
             }
         }
+    }
+
+
+    public Vector<Double> getErrorArray() {
+        Vector<Double> result = new Vector<>();
+        for (Perceptron p : this.perceptrons.get(0)) {
+            result.add(p.delta);
+        }
+        return result;
     }
 }
 

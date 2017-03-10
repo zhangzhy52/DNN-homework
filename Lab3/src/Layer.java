@@ -31,16 +31,31 @@ public class Layer {
         layer.type = "input";
         layer.outMapNum = 1;//
         layer.outputSize = mapSize;//
+        layer.initError();
         return layer;
     }
 
     //  currLayer.outMapNum = preLayer.outMapNum * currLayer.kernelNum;
     //  currLayer.outputSize = new Layer.Size(preLayer.outputSize.x - currLayer.kernelSize.x + 1, preLayer.outputSize.y - currLayer.kernelSize.y + 1);
-    public static Layer buildConvLayer(int outMapNum, Size kernelSize) {
+    public static Layer buildConvLayer(int outMapNum, Size kernelSize, Size mapSize) {
         Layer layer = new Layer();
         layer.type = "conv";
         layer.outMapNum = outMapNum;
         layer.kernelSize = kernelSize;
+        layer.outputSize = mapSize;
+        layer.initOutMaps();
+        layer.initBias();
+        layer.initError();
+        layer.initKernel();
+        return layer;
+    }
+
+    public static Layer buildPoolingLayer(int outMapNum, Size mapSize) {
+        Layer layer = new Layer();
+        layer.outMapNum = outMapNum;
+        layer.outputSize = mapSize;
+        layer.initOutMaps();
+        layer.initError();
         return layer;
     }
 
@@ -101,7 +116,39 @@ public class Layer {
         }
     }
 
+    public static double[][][][] fillArray(Vector<Double> data, int mapNum, int length) {
+        double[][][][] output = new double[mapNum][4][length][length];
 
+        for (int num = 0; num < mapNum; num ++) {
+            int mapStart = num * (4 * length * length);
+            for ( int x = 0; x < length; x ++) {
+                for ( int y = 0; y < length; y ++) {
+                    for (int c = 0; c < 4; c++) {
+                        output[num][c][x][y] = data.get(mapStart + 4 * (x * length + y) + c);
+                    }
+                }
+            }
+        }
 
+        return output;
+    }
+
+    public static Vector<Double> outputArray(double[][][][] map, int mapNum, int length) {
+        int size = mapNum * 4 * length * length;
+
+        Vector<Double> result = new Vector<>(size);
+
+        for (int index = 0; index < size; index++) { // Need to subtract 1 since the last item is the CATEGORY.
+            int num = index / (4 * length * length);
+            int offset = index % (4 * length * length);
+            int x = (offset / 4) / length;
+            int y = (offset / 4) % length;
+            int c = offset % 4;
+
+            result.add(map[num][c][x][y]);
+        }
+
+        return result;
+    }
 
 }

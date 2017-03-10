@@ -26,12 +26,12 @@ import javax.imageio.ImageIO;
 
 public class Lab3 {
 
-	private static int     imageSize = 8; // Images are imageSize x imageSize.  The provided data is 128x128, but this can be resized by setting this value (or passing in an argument).
+	private static int     imageSize = 32; // Images are imageSize x imageSize.  The provided data is 128x128, but this can be resized by setting this value (or passing in an argument).
 	                                       // You might want to resize to 8x8, 16x16, 32x32, or 64x64; this can reduce your network size and speed up debugging runs.
 	                                       // ALL IMAGES IN A TRAINING RUN SHOULD BE THE *SAME* SIZE.
 	private static enum    Category { airplanes, butterfly, flower, grand_piano, starfish, watch };  // We'll hardwire these in, but more robust code would not do so.
 
-	private static final Boolean    useRGB = false; // If true, FOUR units are used per pixel: red, green, blue, and grey.  If false, only ONE (the grey-scale value).
+	private static final Boolean    useRGB = true; // If true, FOUR units are used per pixel: red, green, blue, and grey.  If false, only ONE (the grey-scale value).
 	private static       int unitsPerPixel = (useRGB ? 4 : 1); // If using RGB, use red+blue+green+grey.  Otherwise just use the grey value.
 
 	private static String    modelToUse = "deep"; // Should be one of { "perceptrons", "oneLayer", "deep" };  You might want to use this if you are trying approaches other than a Deep ANN.
@@ -39,10 +39,20 @@ public class Lab3 {
 	                                                  // Or use the get2DfeatureValue() 'accessor function' that maps 2D coordinates into the 1D vector.
 	                                                  // The last element in this vector holds the 'teacher-provided' label of the example.
 
-	private static double eta       =    0.5, fractionOfTrainingToUse = 1.00, dropoutRate = 0.00; // To turn off drop out, set dropoutRate to 0.0 (or a neg number).
-	private static final double weight_decay = 0.;
-	private static final double momentum = 0.1;
-	private static int    maxEpochs = 500; // Feel free to set to a different value.
+	private static double eta       =    0.5, fractionOfTrainingToUse = 1.00, dropoutRate = 0.00,momentum = 0.1, weight_decay = 0.; // To turn off drop out, set dropoutRate to 0.0 (or a neg number).
+	private static int    maxEpochs = 10000; // Feel free to set to a different value.
+	private static int numKernels = 2;
+	private static int kernelSize = 5;
+
+	static int size = ((imageSize - kernelSize + 1) / 2 - kernelSize + 1) / 2;
+	static Layer layerInput = Layer.buildInputLayer(new Layer.Size(imageSize, imageSize));
+	static Layer layerC1 = Layer.buildConvLayer(numKernels, new Layer.Size(kernelSize, kernelSize), new Layer.Size(imageSize - kernelSize + 1, imageSize - kernelSize + 1));
+	static Layer layerP1 = Layer.buildPoolingLayer(numKernels, new Layer.Size((imageSize - kernelSize + 1) / 2, (imageSize - kernelSize + 1) / 2));
+	static PoolingLayer p1 = new PoolingLayer();
+	static Layer layerC2 = Layer.buildConvLayer(numKernels * numKernels, new Layer.Size(kernelSize, kernelSize), new Layer.Size((imageSize - kernelSize + 1) / 2 - kernelSize + 1, (imageSize - kernelSize + 1) / 2 - kernelSize + 1));
+	static Layer layerP2 = Layer.buildPoolingLayer(numKernels * numKernels, new Layer.Size(size, size));
+	static PoolingLayer p2 = new PoolingLayer();
+	static Network network;
 
 	public static void main(String[] args) {
 		String trainDirectory = "images/trainset/";
@@ -82,7 +92,14 @@ public class Lab3 {
         System.out.println("The  tuneset contains " + comma( testset.getSize()) + " examples.  Took " + convertMillisecondsToTimeSpan(System.currentTimeMillis() - start) + ".");
 
 
-        // Now train a Deep ANN.  You might wish to first use your Lab 2 code here and see how one layer of HUs does.  Maybe even try your perceptron code.
+		// Network structure.
+		ArrayList<Integer> numUnits = new ArrayList<>();
+		numUnits.add(numKernels * numKernels * size * size * 4);
+		numUnits.add(20);
+		numUnits.add(6);
+		network = new Network(numUnits, eta, 1.0 - dropoutRate, weight_decay, momentum);
+
+		// Now train a Deep ANN.  You might wish to first use your Lab 2 code here and see how one layer of HUs does.  Maybe even try your perceptron code.
         // We are providing code that converts images to feature vectors.  Feel free to discard or modify.
         start = System.currentTimeMillis();
         trainANN(trainset, tuneset, testset);
@@ -193,16 +210,16 @@ public class Lab3 {
 	}
 
 	private static Vector<Double> convertToFeatureVector(Instance image) {
-		Vector<Double> result = new Vector<Double>(inputVectorSize);
+		Vector<Double> result = new Vector<Double>(inputVectorSize - 1);
 
 		for (int index = 0; index < inputVectorSize - 1; index++) { // Need to subtract 1 since the last item is the CATEGORY.
 			if (useRGB) {
-				int xValue = (index / unitsPerPixel) % image.getWidth();
-				int yValue = (index / unitsPerPixel) / image.getWidth();
+				int xValue = (index / unitsPerPixel) / image.getWidth();
+				int yValue = (index / unitsPerPixel) % image.getWidth();
 			//	System.out.println("  xValue = " + xValue + " and yValue = " + yValue + " for index = " + index);
-				if      (index % 3 == 0) result.add(image.getRedChannel()  [xValue][yValue] / 255.0); // If unitsPerPixel > 4, this if-then-elseif needs to be edited!
-				else if (index % 3 == 1) result.add(image.getGreenChannel()[xValue][yValue] / 255.0);
-				else if (index % 3 == 2) result.add(image.getBlueChannel() [xValue][yValue] / 255.0);
+				if      (index % unitsPerPixel == 0) result.add(image.getRedChannel()  [xValue][yValue] / 255.0); // If unitsPerPixel > 4, this if-then-elseif needs to be edited!
+				else if (index % unitsPerPixel == 1) result.add(image.getGreenChannel()[xValue][yValue] / 255.0);
+				else if (index % unitsPerPixel == 2) result.add(image.getBlueChannel() [xValue][yValue] / 255.0);
 				else                     result.add(image.getGrayImage()   [xValue][yValue] / 255.0); // Seems reasonable to also provide the GREY value.
 			} else {
 				int xValue = index % image.getWidth();
@@ -210,7 +227,7 @@ public class Lab3 {
 				result.add(                         image.getGrayImage()   [xValue][yValue] / 255.0);
 			}
 		}
-		result.add((double) convertCategoryStringToEnum(image.getLabel()).ordinal()); // The last item is the CATEGORY, representing as an integer starting at 0 (and that int is then coerced to double).
+//		result.add((double) convertCategoryStringToEnum(image.getLabel()).ordinal()); // The last item is the CATEGORY, representing as an integer starting at 0 (and that int is then coerced to double).
 
 		return result;
 	}
@@ -412,35 +429,106 @@ public class Lab3 {
 
 	private static int trainDeep(Vector<Vector<Double>> trainFeatureVectors, Vector<Vector<Double>> tuneFeatureVectors,	Vector<Vector<Double>> testFeatureVectors,
 								 Dataset trainset, Dataset tuneset, Dataset testset) {
-//		Vector<Vector<Double>> trainLabels = getLabelVector(trainset);
-//		Vector<Vector<Double>> tuneLabels = getLabelVector(tuneset);
-//		Vector<Vector<Double>> testLabels = getLabelVector(testset);
-//
-//
-//		// Network structure.
-//		ArrayList<Integer> numUnits = new ArrayList<>();
-//		numUnits.add(trainFeatureVectors.get(0).size());
-//		numUnits.add(16);
-//		numUnits.add(6);
-//		Network network = new Network(numUnits, eta, 1.0 - dropoutRate, weight_decay, momentum);
-//
-//		for (int k = 0; k < maxEpochs; k++) {
-//
-//			for (int i = 0; i < trainFeatureVectors.size(); i++)
-//				network.train(trainFeatureVectors.get(i), trainLabels.get(i));
-//
-//			// Early stopping.
-//			double trainAccuracy = network.test(trainFeatureVectors, trainLabels, null, false);
-//			double tuneAccuracy = network.test(tuneFeatureVectors, tuneLabels, null, false);
-//			double testAccuracy = network.test(testFeatureVectors, testLabels, null, false);
-//
-//			if (true)  System.out.println(k + ", " + trainAccuracy + ", " + tuneAccuracy + ", " + testAccuracy);
-//
-//		}
-//
-//		network.test(testFeatureVectors, testLabels, new String[]{ "airplanes", "butterfly", "flower", "grand_piano", "starfish", "watch" }, true);
+		Vector<Vector<Double>> trainLabels = getLabelVector(trainset);
+		Vector<Vector<Double>> tuneLabels = getLabelVector(tuneset);
+		Vector<Vector<Double>> testLabels = getLabelVector(testset);
+
+
+		for (int k = 0; k < maxEpochs; k++) {
+
+			for (int i = 0; i < trainFeatureVectors.size(); i++) {
+				///************************************ Forward *****************************************/
+				Vector<Double> feature = trainFeatureVectors.get(i);
+				layerInput.outMaps = Layer.fillArray(feature, 1, imageSize);
+
+				Convolution.forward(layerInput, layerC1);
+				p1.forward(layerC1, layerP1);
+				Convolution.forward(layerP1, layerC2);
+				p2.forward(layerC2, layerP2);
+
+				Vector<Double> tmp = Layer.outputArray(layerP2.outMaps, numKernels * numKernels, size);
+				network.forwardPropagation(tmp);
+
+
+				///************************************ Back *****************************************/
+				Vector<Double> label = trainLabels.get(i);
+				network.backPropagation(label);
+
+				Vector<Double> errors = network.getErrorArray();
+				layerP2.error = Layer.fillArray(errors, numKernels * numKernels, size);
+
+				p2.back(layerC2, layerP2);
+				Convolution.backprop(layerP1, layerC2, eta);
+				p1.back(layerC1, layerP1);
+				Convolution.backprop(layerInput, layerC1, eta);
+			}
+
+
+			// Early stopping.
+			double trainAccuracy = testDeep(trainFeatureVectors, trainLabels, null, false);
+			double tuneAccuracy = testDeep(tuneFeatureVectors, tuneLabels, null, false);
+			double testAccuracy = testDeep(testFeatureVectors, testLabels, null, false);
+
+			if (true)  System.out.println(k + ", " + trainAccuracy + ", " + tuneAccuracy + ", " + testAccuracy);
+
+		}
+
+		System.out.println(testDeep(testFeatureVectors, testLabels, new String[]{ "airplanes", "butterfly", "flower", "grand_piano", "starfish", "watch" }, true));
 
 		return -1;
+	}
+
+	private  static double testDeep(Vector<Vector<Double>> featureVectors, Vector<Vector<Double>> data_labels, String[] labels, boolean print) {
+
+		double right = 0.0;
+
+		int[][] confusion = new int[data_labels.get(0).size()][data_labels.get(0).size()];
+
+		for (int i = 0; i < featureVectors.size(); i++) {
+			Vector<Double> data = featureVectors.get(i);
+			Vector<Double> data_label = data_labels.get(i);
+
+			double tmp_p = network.dropout_p;
+			network.dropout_p = 1.1;
+
+
+			///************************************ Forward *****************************************/
+			Vector<Double> feature = featureVectors.get(i);
+			layerInput.outMaps = Layer.fillArray(feature, 1, imageSize);
+
+			Convolution.forward(layerInput, layerC1);
+			p1.forward(layerC1, layerP1);
+			Convolution.forward(layerP1, layerC2);
+			p2.forward(layerC2, layerP2);
+
+			Vector<Double> tmp = Layer.outputArray(layerP2.outMaps, numKernels * numKernels, size);
+			network.forwardPropagation(tmp);
+
+
+
+			network.dropout_p = tmp_p;
+
+			int correct_index = -1;
+			for (int j = 0; j < data_label.size(); j++) {
+				if (data_label.get(j) > 0.5) correct_index = j;
+			}
+
+			if (correct_index == network.outputIndex()) right += 1.0;
+
+			confusion[correct_index][network.outputIndex()] += 1;
+		}
+
+		if(print) {
+			for (int i = 0; i < labels.length; i++) {
+				for (int j = 0; j < labels.length; j++) {
+					System.out.print(confusion[i][j] + "\t");
+				}
+				System.out.println();
+			}
+		}
+
+		return right / featureVectors.size();
+
 	}
 
 	private static Vector<Vector<Double>> getLabelVector(Dataset dataset) {

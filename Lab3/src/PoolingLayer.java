@@ -6,6 +6,73 @@ import java.util.Vector;
  * Pooling Layer.
  */
 public class PoolingLayer {
+
+    public int[][] map;
+
+    public void forward(Layer layer1, Layer layer2) {
+        map = new int[layer2.outputSize.x][layer2.outputSize.y];
+
+        for (int num  = 0; num < layer1.outMapNum; num ++) {
+            for (int c = 0; c < 4; c++) {
+                for (int x = 0; x < layer2.outputSize.x; x ++) {
+                    for (int y = 0; y < layer2.outputSize.y; y ++) {
+                        int xx = x * 2;
+                        int yy = y * 2;
+
+                        double m = layer1.outMaps[num][c][xx][yy];
+                        map[x][y] = 0;
+
+                        if (layer1.outMaps[num][c][xx + 1][yy] > m) {
+                            m = layer1.outMaps[num][c][xx + 1][yy];
+                            map[x][y] = 1;
+                        }
+
+                        if (layer1.outMaps[num][c][xx][yy + 1] > m) {
+                            m = layer1.outMaps[num][c][xx][yy + 1];
+                            map[x][y] = 2;
+                        }
+
+                        if (layer1.outMaps[num][c][xx + 1][yy + 1] > m) {
+                            m = layer1.outMaps[num][c][xx + 1][yy + 1];
+                            map[x][y] = 3;
+                        }
+
+                        layer2.outMaps[num][c][x][y] = m;
+                    }
+                }
+            }
+        }
+    }
+
+    public void back(Layer layer1, Layer layer2) {
+        for (int num  = 0; num < layer1.outMapNum; num ++) {
+            for (int c = 0; c < 4; c++) {
+                for (int x = 0; x < layer2.outputSize.x; x ++) {
+                    for (int y = 0; y < layer2.outputSize.y; y ++) {
+                        int xx = x * 2;
+                        int yy = y * 2;
+
+                        layer1.error[num][c][xx][yy] = 0.0;
+                        layer1.error[num][c][xx + 1][yy] = 0.0;
+                        layer1.error[num][c][xx][yy + 1] = 0.0;
+                        layer1.error[num][c][xx + 1][yy + 1] = 0.0;
+
+                        if (map[x][y] == 0) layer1.error[num][c][xx][yy] = layer1.error[num][c][x][y];
+                        else if (map[x][y] == 1) layer1.error[num][c][xx + 1][yy] = layer1.error[num][c][x][y];
+                        else if (map[x][y] == 2) layer1.error[num][c][xx][yy + 1] = layer1.error[num][c][x][y];
+                        else if (map[x][y] == 3) layer1.error[num][c][xx + 1][yy + 1] = layer1.error[num][c][x][y];
+                    }
+                }
+            }
+        }
+
+
+    }
+
+
+
+
+    /*
     public final static int numCores = 4;
     public static int imgLength;
 
@@ -74,5 +141,6 @@ public class PoolingLayer {
         }
 
     }
+    */
 
 }

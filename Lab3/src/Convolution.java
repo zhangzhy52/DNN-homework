@@ -8,7 +8,6 @@ import javax.swing.text.Position.Bias;
 
 public class Convolution {
 
-    public double stepSize = 0.1;
 /*
 	public void createNextLayer(Layer preLayer ){
 		Layer currLayer =  new Layer();
@@ -23,7 +22,7 @@ public class Convolution {
 	}
 	*/
 
-    public void forward(Layer prevLayer, Layer currLayer){ // How to update bias?
+    public static void forward(Layer prevLayer, Layer currLayer){ // How to update bias?
 
         int numKernel = currLayer.kernelNum;
         int outputX = currLayer.outputSize.x;
@@ -43,7 +42,7 @@ public class Convolution {
     //public double[][][][] error;   // outMapNum * channelNum *  outputSize.x * outputSize.y
     //public double[][][][] kernel;  // kernelNum * channelNum * kernelSize * kernelSize
     //public double[][] bias; // kernelNum * channelNum;
-    public void backprop(Layer prevLayer, Layer currLayer){
+    public static void backprop(Layer prevLayer, Layer currLayer, double stepSize){
 
         int numKernel = currLayer.kernelNum;
         int kernelx = currLayer.kernelSize.x;
@@ -89,7 +88,7 @@ public class Convolution {
     }
 
 
-    private double[][] convolve (double[][]image, double[][]kernel ) // convolution
+    private static double[][] convolve (double[][]image, double[][]kernel ) // convolution
     {
         int iRow = image.length;
         int iColumn = image[0].length;
@@ -114,19 +113,19 @@ public class Convolution {
     }
 
     // rotate 180
-    private double[][] reverseKernel(double[][] kernel){
+    private static double[][] reverseKernel(double[][] kernel){
         int row = kernel.length;
         int col = kernel[0].length;
         double[][] reverse = new double[row][col];
         for (int i = 0; i < row; i++)
-            for (int j = 0; i< col; j++){
+            for (int j = 0; j< col; j++){
                 reverse[i][j] = kernel[row - i - 1][col - j - 1];
             }
         return reverse;
     }
 
     // zero padding.
-    private double[][] zeroPadding (double[][] matrix, int kernelx, int kernely){
+    private static double[][] zeroPadding (double[][] matrix, int kernelx, int kernely){
         int row = matrix.length;
         int col = matrix[0].length;
         int newRow = row + 2 * kernelx - 2;
@@ -143,7 +142,7 @@ public class Convolution {
     }
 
     // matrix addition
-    private void matrixAdd( double[][] m1, double [][] m2, boolean reLu){
+    private static void matrixAdd( double[][] m1, double [][] m2, boolean reLu){
         int row = m1.length;
         int col = m1[0].length;
 
@@ -159,7 +158,7 @@ public class Convolution {
 
     }
 
-    private double[][] createConstantMatrix(double bias, int row, int col)
+    private static double[][] createConstantMatrix(double bias, int row, int col)
     {
         double[][] biasM = new double[row][col];
         for (int i = 0; i < row ;i ++)
@@ -169,7 +168,7 @@ public class Convolution {
         return biasM;
     }
 
-    private void constantTimeMatrix(double number, double[][] matrix)
+    private static void constantTimeMatrix(double number, double[][] matrix)
     {
         int row = matrix.length;
         int col = matrix[0].length;
@@ -179,7 +178,7 @@ public class Convolution {
                 matrix[i][j] *= number;
     }
 
-    private double avgMatrix(double[][] matrix){
+    private static double avgMatrix(double[][] matrix){
         double sum = 0.0;
         for (int i = 0; i < matrix.length; i++)
             for (int j = 0; j < matrix[0].length; j++)
@@ -189,10 +188,10 @@ public class Convolution {
 
 
 
-    private double sigmoid(double x) {
+    private static double sigmoid(double x) {
         return (1/( 1 + Math.pow(Math.E,(-1*x))));
     }
-    private double reLu(double x){
+    private static double reLu(double x){
         return x > 0 ? x: -x;
     }
 
