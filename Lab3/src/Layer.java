@@ -7,32 +7,35 @@ public class Layer {
 
     public String type; //type of layer
     public double[][][][] kernel;  // kernelNum * channelnum * kernelSize * kernelSize
-    public double[] bias;
-    
+    public double[][] bias; // kernelNum * channelNum;
+
     public Size kernelSize;
     public int kernelNum  = 5;
-    
-    
+
+
     public Size outputSize;
     public int outMapNum;
 
     public int channelNum = 4;
 
     public double[][][][] outMaps; // outMapNum * channelNum *  outputSize.x * outputSize.y
-    public double[][][][] error;
+    public double[][][][] error;   // outMapNum * channelNum *  outputSize.x * outputSize.y
 
     public Layer(){
 
     }
 
-    
+    //for the input layer, each image get a outMaps of 1 * 4 * imageHeight * imageWidth, here mapSize is the image Size;
     public static Layer buildInputLayer(Size mapSize) {
-		Layer layer = new Layer();
-		layer.type = "input";
-		layer.outMapNum = 1;// 
-		layer.outputSize = mapSize;//
-		return layer;
+        Layer layer = new Layer();
+        layer.type = "input";
+        layer.outMapNum = 1;//
+        layer.outputSize = mapSize;//
+        return layer;
     }
+
+    //  currLayer.outMapNum = preLayer.outMapNum * currLayer.kernelNum;
+    //  currLayer.outputSize = new Layer.Size(preLayer.outputSize.x - currLayer.kernelSize.x + 1, preLayer.outputSize.y - currLayer.kernelSize.y + 1);
     public static Layer buildConvLayer(int outMapNum, Size kernelSize) {
         Layer layer = new Layer();
         layer.type = "conv";
@@ -46,6 +49,16 @@ public class Layer {
 
     }
 
+    public  void initError(){
+        this.error = new double[outMapNum][channelNum][outputSize.x][outputSize.y];
+    }
+
+    public void setErrorZero(int i, int j){
+        for (int x = 0; x < outputSize.x; x++ )
+            for (int y = 0; y < outputSize.y; y++)
+                this.error[i][j][x][y] = 0;
+    }
+
     public void initKernel() {
 //		int fan_out = getOutMapNum() * kernelSize.x * kernelSize.y;
 //		int fan_in = frontMapNum * kernelSize.x * kernelSize.y;
@@ -53,7 +66,10 @@ public class Layer {
         this.kernel = new double[kernelNum][channelNum][kernelSize.x][kernelSize.y];
         for (int i = 0; i < kernelNum; i++)
             for (int j = 0; j < channelNum; j++)
-                kernel[i][j] = randomMatrix(kernelSize.x, kernelSize.y);
+                this.kernel[i][j] = randomMatrix(kernelSize.x, kernelSize.y);
+    }
+    public void initBias(){
+        this.bias = randomMatrix(kernelNum, channelNum);
     }
 
 
@@ -69,7 +85,7 @@ public class Layer {
         for (int i = 0; i < x; i++) {
             for (int j = 0; j < y; j++) {
 
-                matrix[i][j] = (r.nextDouble() - 0.05) / 10;
+                matrix[i][j] = (r.nextDouble() - 0.5) / 10;
             }
         }
         return matrix;
