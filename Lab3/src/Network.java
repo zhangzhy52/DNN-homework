@@ -7,7 +7,7 @@ import java.util.Random;
 import java.util.Vector;
 
 public class Network {
-    protected static final boolean ReLU = true;
+    protected static final boolean ReLU = false;
 
     public ArrayList<ArrayList<Perceptron>> perceptrons = new ArrayList<>();
 

@@ -37,12 +37,13 @@ public class Layer {
 
     //  currLayer.outMapNum = preLayer.outMapNum * currLayer.kernelNum;
     //  currLayer.outputSize = new Layer.Size(preLayer.outputSize.x - currLayer.kernelSize.x + 1, preLayer.outputSize.y - currLayer.kernelSize.y + 1);
-    public static Layer buildConvLayer(int outMapNum, Size kernelSize, Size mapSize) {
+    public static Layer buildConvLayer(int outMapNum, int kernelNum, Size kernelSize, Size mapSize) {
         Layer layer = new Layer();
         layer.type = "conv";
         layer.outMapNum = outMapNum;
         layer.kernelSize = kernelSize;
         layer.outputSize = mapSize;
+        layer.kernelNum = kernelNum;
         layer.initOutMaps();
         layer.initBias();
         layer.initError();

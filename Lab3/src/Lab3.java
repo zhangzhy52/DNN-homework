@@ -18,9 +18,7 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Random;
-import java.util.Vector;
+import java.util.*;
 
 import javax.imageio.ImageIO;
 
@@ -44,15 +42,19 @@ public class Lab3 {
 	private static int numKernels = 2;
 	private static int kernelSize = 5;
 
+	/*************************************************************************************************/
 	static int size = ((imageSize - kernelSize + 1) / 2 - kernelSize + 1) / 2;
 	static Layer layerInput = Layer.buildInputLayer(new Layer.Size(imageSize, imageSize));
-	static Layer layerC1 = Layer.buildConvLayer(numKernels, new Layer.Size(kernelSize, kernelSize), new Layer.Size(imageSize - kernelSize + 1, imageSize - kernelSize + 1));
+	static Layer layerC1 = Layer.buildConvLayer(numKernels, numKernels, new Layer.Size(kernelSize, kernelSize), new Layer.Size(imageSize - kernelSize + 1, imageSize - kernelSize + 1));
 	static Layer layerP1 = Layer.buildPoolingLayer(numKernels, new Layer.Size((imageSize - kernelSize + 1) / 2, (imageSize - kernelSize + 1) / 2));
 	static PoolingLayer p1 = new PoolingLayer();
-	static Layer layerC2 = Layer.buildConvLayer(numKernels * numKernels, new Layer.Size(kernelSize, kernelSize), new Layer.Size((imageSize - kernelSize + 1) / 2 - kernelSize + 1, (imageSize - kernelSize + 1) / 2 - kernelSize + 1));
+	static Layer layerC2 = Layer.buildConvLayer(numKernels * numKernels, numKernels, new Layer.Size(kernelSize, kernelSize), new Layer.Size((imageSize - kernelSize + 1) / 2 - kernelSize + 1, (imageSize - kernelSize + 1) / 2 - kernelSize + 1));
 	static Layer layerP2 = Layer.buildPoolingLayer(numKernels * numKernels, new Layer.Size(size, size));
 	static PoolingLayer p2 = new PoolingLayer();
 	static Network network;
+
+	/*************************************************************************************************/
+
 
 	public static void main(String[] args) {
 		String trainDirectory = "images/trainset/";
@@ -98,6 +100,11 @@ public class Lab3 {
 		numUnits.add(20);
 		numUnits.add(6);
 		network = new Network(numUnits, eta, 1.0 - dropoutRate, weight_decay, momentum);
+//		Collections.shuffle(trainset.instances);
+		List<Instance> tmpList = trainset.getImages();
+		Collections.shuffle(tmpList);
+		trainset = new Dataset();
+		for (Instance i : tmpList) trainset.add(i);
 
 		// Now train a Deep ANN.  You might wish to first use your Lab 2 code here and see how one layer of HUs does.  Maybe even try your perceptron code.
         // We are providing code that converts images to feature vectors.  Feel free to discard or modify.
