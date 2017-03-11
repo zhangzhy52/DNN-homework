@@ -37,7 +37,7 @@ public class Lab3 {
 	                                                  // Or use the get2DfeatureValue() 'accessor function' that maps 2D coordinates into the 1D vector.
 	                                                  // The last element in this vector holds the 'teacher-provided' label of the example.
 
-	private static double eta       =    0.5, fractionOfTrainingToUse = 1.00, dropoutRate = 0.00,momentum = 0.1, weight_decay = 0.; // To turn off drop out, set dropoutRate to 0.0 (or a neg number).
+	private static double eta       =    0.5, fractionOfTrainingToUse = 1.0, dropoutRate = 0.,momentum = 0.0, weight_decay = 0.; // To turn off drop out, set dropoutRate to 0.0 (or a neg number).
 	private static int    maxEpochs = 10000; // Feel free to set to a different value.
 	private static int numKernels = 2;
 	private static int kernelSize = 5;
@@ -138,7 +138,7 @@ public class Lab3 {
                     g.dispose();
                 }
 
-                Instance instance = new Instance(scaledBI == null ? img : scaledBI, name.substring(0, locationOfUnderscoreImage));
+                Instance instance = new Instance(scaledBI == null ? img : scaledBI, "", name.substring(0, locationOfUnderscoreImage));
 
                 dataset.add(instance);
             } catch (IOException e) {
@@ -440,7 +440,8 @@ public class Lab3 {
 		Vector<Vector<Double>> tuneLabels = getLabelVector(tuneset);
 		Vector<Vector<Double>> testLabels = getLabelVector(testset);
 
-
+		double best = 0.0;
+		int times = 0;
 		for (int k = 0; k < maxEpochs; k++) {
 
 			for (int i = 0; i < trainFeatureVectors.size(); i++) {
@@ -474,10 +475,19 @@ public class Lab3 {
 			// Early stopping.
 			double trainAccuracy = testDeep(trainFeatureVectors, trainLabels, null, false);
 			double tuneAccuracy = testDeep(tuneFeatureVectors, tuneLabels, null, false);
-			double testAccuracy = testDeep(testFeatureVectors, testLabels, null, false);
+			double testAccuracy = testDeep(testFeatureVectors, testLabels, new String[]{ "airplanes", "butterfly", "flower", "grand_piano", "starfish", "watch" }, k % 20 == 0);
 
 			if (true)  System.out.println(k + ", " + trainAccuracy + ", " + tuneAccuracy + ", " + testAccuracy);
 
+			if (k < 300) continue;
+
+			if (tuneAccuracy > best) {
+				best = tuneAccuracy;
+				times = 0;
+			} else {
+				times += 1;
+				if (times > 200) break;
+			}
 		}
 
 		System.out.println(testDeep(testFeatureVectors, testLabels, new String[]{ "airplanes", "butterfly", "flower", "grand_piano", "starfish", "watch" }, true));
@@ -559,5 +569,759 @@ public class Lab3 {
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+	public static class Network {
+		protected static final boolean ReLU = false;
+
+		public ArrayList<ArrayList<Perceptron>> perceptrons = new ArrayList<>();
+
+		public double rate = 0.1;
+		public double dropout_p = 1.1;
+		public double weight_decay = 0.04;
+		public double momentum = 0.1;
+
+		private Random random = new Random();
+
+		public Network(ArrayList<Integer> numUnits, double rate, double dropout_p, double weight_decay, double momentum) {
+
+			// Init perceptrons.
+			for (int i = 0; i < numUnits.size(); i++) {
+				ArrayList<Perceptron> layer = new ArrayList<>();
+
+				for (int j = 0; j < numUnits.get(i); j++) {
+					layer.add(new Perceptron());
+				}
+
+				if (i != numUnits.size() - 1) layer.add(new Perceptron()); // bias unit.
+
+				perceptrons.add(layer);
+			}
+
+			// Init weights.
+
+			for (int i = 0; i < perceptrons.size() - 1; i++) {
+				for (int j = 0; j < perceptrons.get(i).size(); j++) {
+					for (int k = 0; k < perceptrons.get(i + 1).size(); k++) {
+						if (i != perceptrons.size() - 2 && k == perceptrons.get(i + 1).size() - 1) continue;	// bias.
+
+						Weight weight = new Weight(random.nextDouble());
+						weight.input = perceptrons.get(i).get(j);
+						weight.output = perceptrons.get(i + 1).get(k);
+						perceptrons.get(i).get(j).outputs.add(weight);
+						perceptrons.get(i + 1).get(k).inputs.add(weight);
+					}
+				}
+			}
+
+			// Learning rate.
+			this.rate = rate;
+			this.dropout_p = dropout_p;
+			this.weight_decay = weight_decay;
+			this.momentum = momentum;
+		}
+
+
+		public void train(Vector<Double> data, Vector<Double> label) {
+
+			forwardPropagation(data);
+			backPropagation(label);
+
+		}
+
+		public double test(Vector<Vector<Double>> datas, Vector<Vector<Double>> data_labels,
+						   String[] labels, boolean print) {
+			double right = 0.0;
+
+			int[][] confusion = new int[data_labels.get(0).size()][data_labels.get(0).size()];
+
+			for (int i = 0; i < datas.size(); i++) {
+				Vector<Double> data = datas.get(i);
+				Vector<Double> data_label = data_labels.get(i);
+
+				double tmp = dropout_p;
+				dropout_p = 1.1;
+				forwardPropagation(data);
+				dropout_p = tmp;
+
+				int correct_index = -1;
+				for (int j = 0; j < data_label.size(); j++) {
+					if (data_label.get(j) > 0.5) correct_index = j;
+				}
+
+				if (correct_index == outputIndex()) right += 1.0;
+
+				confusion[correct_index][outputIndex()] += 1;
+			}
+
+			if(print) {
+				for (int i = 0; i < labels.length; i++) {
+					for (int j = 0; j < labels.length; j++) {
+						System.out.print(confusion[i][j] + "\t");
+					}
+					System.out.println();
+				}
+			}
+
+			return right / datas.size();
+		}
+
+		public int outputIndex() {
+			double max = 0.0;
+			int index = 0;
+
+			ArrayList<Perceptron> layer = perceptrons.get(perceptrons.size() - 1);
+
+			for (int i = 0; i < layer.size(); i++) {
+				if (layer.get(i).fx > max) {
+					max = layer.get(i).fx;
+					index = i;
+				}
+//            System.out.print(layer.get(i).fx + " ");
+			}
+//        System.out.println();
+			return index;
+		}
+
+		private double sigmoid(double x) {
+			return (1/( 1 + Math.pow(Math.E,(-1*x))));
+		}
+
+		public void forwardPropagation(Vector<Double> data) {
+			// Input layer.
+			for (int i = 0; i < data.size(); i++) {
+				perceptrons.get(0).get(i).fx = data.get(i);
+			}
+
+			// Hidden layers and output layer.
+			for (int i = 1; i < perceptrons.size(); i++) {
+				for (Perceptron p : perceptrons.get(i)) {
+					if (p.inputs.size() == 0) continue; // bias unit.
+
+					// Dropout
+					if (i != perceptrons.size() - 1 && random.nextDouble() > dropout_p) {
+						// Drop
+						p.dropout = true;
+						continue;
+					} else {
+						// Keep
+						p.dropout = false;
+
+						p.fx = 0;
+
+						for (Weight weight : p.inputs) {
+							// If the input node is not dropped.
+							if (!weight.input.dropout) p.fx += weight.input.fx * weight.value;
+						}
+
+						// ReLU
+						/*************************************/
+						if (i == 1 && ReLU) {
+							p.fx = p.fx > 0 ? p.fx : 0;
+							continue;
+						}
+						/*************************************/
+
+						p.fx = sigmoid(p.fx);
+					}
+				}
+			}
+		}
+
+		public void backPropagation(Vector<Double> label) {
+			// Delta
+			for (int i = 0; i < label.size(); i++) {	// Output layer.
+				Perceptron p = perceptrons.get(perceptrons.size() - 1).get(i);
+				p.delta = - (label.get(i) - p.fx) * p.fx * (1 - p.fx);
+			}
+
+			// Delta hidden layer.
+			for (int i = perceptrons.size() - 2; i >= 0; i--) {
+				for (Perceptron p : perceptrons.get(i)) {
+					if (p.dropout) continue;
+
+					p.delta = 0;
+
+					for (Weight w : p.outputs) {
+						if (!w.output.dropout) p.delta += w.output.delta * w.value;
+					}
+
+					// ReLu
+					/************************************/
+					if (i == 1 && ReLU) {
+						p.delta *= p.fx > 0 ? 1 : 0;
+						continue;
+					}
+					/************************************/
+
+					p.delta *= p.fx * ( 1- p.fx );
+				}
+			}
+
+			// Upadte weights.
+			for (int i = 0; i < perceptrons.size() - 1; i++) {
+				for (Perceptron p : perceptrons.get(i)) {
+					if (p.dropout) continue;
+
+					for (Weight w : p.outputs) {
+						if (!w.output.dropout) {
+							w.delta = - rate * p.fx * w.output.delta - rate * weight_decay * w.value + momentum * w.delta;
+							w.value += w.delta;
+						}
+
+					}
+				}
+			}
+		}
+
+
+		public Vector<Double> getErrorArray() {
+			Vector<Double> result = new Vector<>();
+			for (Perceptron p : this.perceptrons.get(0)) {
+				result.add(p.delta);
+			}
+			return result;
+		}
+	}
+
+
+	public static class PoolingLayer {
+
+		public int[][] map;
+
+		public void forward(Layer layer1, Layer layer2) {
+			map = new int[layer2.outputSize.x][layer2.outputSize.y];
+
+			for (int num  = 0; num < layer1.outMapNum; num ++) {
+				for (int c = 0; c < 4; c++) {
+					for (int x = 0; x < layer2.outputSize.x; x ++) {
+						for (int y = 0; y < layer2.outputSize.y; y ++) {
+							int xx = x * 2;
+							int yy = y * 2;
+
+							double m = layer1.outMaps[num][c][xx][yy];
+							map[x][y] = 0;
+
+							if (layer1.outMaps[num][c][xx + 1][yy] > m) {
+								m = layer1.outMaps[num][c][xx + 1][yy];
+								map[x][y] = 1;
+							}
+
+							if (layer1.outMaps[num][c][xx][yy + 1] > m) {
+								m = layer1.outMaps[num][c][xx][yy + 1];
+								map[x][y] = 2;
+							}
+
+							if (layer1.outMaps[num][c][xx + 1][yy + 1] > m) {
+								m = layer1.outMaps[num][c][xx + 1][yy + 1];
+								map[x][y] = 3;
+							}
+
+							layer2.outMaps[num][c][x][y] = m;
+						}
+					}
+				}
+			}
+		}
+
+		public void back(Layer layer1, Layer layer2) {
+			for (int num  = 0; num < layer1.outMapNum; num ++) {
+				for (int c = 0; c < 4; c++) {
+					for (int x = 0; x < layer2.outputSize.x; x ++) {
+						for (int y = 0; y < layer2.outputSize.y; y ++) {
+							int xx = x * 2;
+							int yy = y * 2;
+
+							layer1.error[num][c][xx][yy] = 0.0;
+							layer1.error[num][c][xx + 1][yy] = 0.0;
+							layer1.error[num][c][xx][yy + 1] = 0.0;
+							layer1.error[num][c][xx + 1][yy + 1] = 0.0;
+
+							if (map[x][y] == 0) layer1.error[num][c][xx][yy] = layer1.error[num][c][x][y];
+							else if (map[x][y] == 1) layer1.error[num][c][xx + 1][yy] = layer1.error[num][c][x][y];
+							else if (map[x][y] == 2) layer1.error[num][c][xx][yy + 1] = layer1.error[num][c][x][y];
+							else if (map[x][y] == 3) layer1.error[num][c][xx + 1][yy + 1] = layer1.error[num][c][x][y];
+						}
+					}
+				}
+			}
+
+
+		}
+
+
+
+
+    /*
+    public final static int numCores = 4;
+    public static int imgLength;
+
+    public ArrayList<Double> input = new ArrayList<>();
+    public ArrayList<Double> output = new ArrayList<>();
+
+    public ArrayList<Double> delta = new ArrayList<>();
+    public ArrayList<Double> delta2 = new ArrayList<>();
+
+    public PoolingLayer(ArrayList<Double> input, ArrayList<Double> output) {
+        this.input = input;
+        this.output = output;
+
+        imgLength = (int) Math.sqrt(input.size() / numCores);
+    }
+
+    public void forwardPropagation() {
+        for (int core = 0; core < numCores; core++) {
+            int start = (input.size() / numCores) * core;
+
+            for (int x = 0; x < imgLength; x += 2) {
+                for (int y = 0; y < imgLength; y += 2) {
+                    int index1 = x       * imgLength + y;
+                    int index2 = x       * imgLength + y + 1;
+                    int index3 = (x + 1) * imgLength + y;
+                    int index4 = (x + 1) * imgLength + y + 1;
+
+                    double d = Math.max(Math.max(input.get(start + index1), input.get(start + index2)),
+                            Math.max(input.get(start + index3), input.get(start + index4)));
+
+                    output.add(d);
+                }
+            }
+        }
+    }
+
+    public void backPropagation() {
+        for (int i = 0; i < input.size(); i ++) delta.add(0.);
+
+        for (int core = 0; core < numCores; core++) {
+            int start = (input.size() / numCores) * core;
+
+            int start2 = (delta2.size() / numCores) * core;
+
+            for (int xx = 0; xx < imgLength / 2; xx += 1) {
+                for (int yy = 0; yy < imgLength / 2; yy += 1) {
+                    int index_2 = xx * imgLength / 2 + yy;
+
+                    int x = xx * 2;
+                    int y = yy * 2;
+
+                    int index1 = x       * imgLength + y;
+                    int index2 = x       * imgLength + y + 1;
+                    int index3 = (x + 1) * imgLength + y;
+                    int index4 = (x + 1) * imgLength + y + 1;
+
+                    for (int index: new int[]{index1, index2, index3, index4}) {
+                        if (input.get(start + index).equals(output.get(start2 + index_2))) {
+                            delta.set(start + index, delta2.get(start2 + index_2));
+                            break;
+                        }
+                    }
+
+                }
+            }
+        }
+
+    }
+    */
+
+	}
+
+
+
+
+	public static class Convolution {
+
+/*
+	public void createNextLayer(Layer preLayer ){
+		Layer currLayer =  new Layer();
+		currLayer.kernelSize = new Layer.Size(5,5);
+		currLayer.initKernel();
+
+		currLayer.outputSize = new Layer.Size(preLayer.outputSize.x - currLayer.kernelSize.x + 1,
+				preLayer.outputSize.y - currLayer.kernelSize.y + 1);
+
+		currLayer.outMapNum = preLayer.outMapNum * currLayer.kernelNum;
+
+	}
+	*/
+
+		public static void forward(Layer prevLayer, Layer currLayer){ // How to update bias?
+
+			int numKernel = currLayer.kernelNum;
+			int outputX = currLayer.outputSize.x;
+			int outputY = currLayer.outputSize.y;
+			for (int i = 0;i < currLayer.outMapNum; i++){
+				for (int j = 0; j < currLayer.channelNum; j++){
+
+					currLayer.outMaps[i][j] = convolve(prevLayer.outMaps[i/numKernel][j],
+							currLayer.kernel[i % numKernel][j])  ;
+					//True means take ReLu as the activation function.
+					matrixAdd(currLayer.outMaps[i][j],
+							createConstantMatrix(currLayer.bias[i % numKernel][j], outputX, outputY), true);
+				}
+			}
+
+		}
+		//public double[][][][] error;   // outMapNum * channelNum *  outputSize.x * outputSize.y
+		//public double[][][][] kernel;  // kernelNum * channelNum * kernelSize * kernelSize
+		//public double[][] bias; // kernelNum * channelNum;
+		public static void backprop(Layer prevLayer, Layer currLayer, double stepSize){
+
+			int numKernel = currLayer.kernelNum;
+			int kernelx = currLayer.kernelSize.x;
+			int kernely = currLayer.kernelSize.y;
+
+			double[][][][] dKernel = new double[numKernel][currLayer.channelNum][kernelx][kernely]; //store gradient
+			double[][] dBias = createConstantMatrix(0.0, numKernel, currLayer.channelNum);
+
+			for (int i = 0; i < numKernel; i++)
+				for (int j =0; j < currLayer.channelNum; j++){
+					dKernel[i][j] = createConstantMatrix(0.0, kernelx, kernely);
+				}
+
+			// update error[][][][] of prevLayer
+			for (int i = 0 ; i < currLayer.outMapNum; i++)
+				for (int j = 0; j < currLayer.channelNum; j++){
+					if (i % numKernel == 0)
+						prevLayer.setErrorZero(i/numKernel, j);
+
+
+
+					matrixAdd(prevLayer.error[i/numKernel][j] ,
+							convolve( zeroPadding(currLayer.error[i][j], kernelx, kernely),
+									reverseKernel(currLayer.kernel[i % numKernel][j])),false
+					);
+					// two ways to calculate, may need debug
+					matrixAdd(dKernel[i % numKernel][j] ,
+							convolve (prevLayer.outMaps[i/numKernel][j] , currLayer.error[i][j]),
+							false);
+
+					dBias[i % numKernel][j] += avgMatrix(currLayer.error[i][j]);
+
+				}
+			// update kernel[][][][] and bias of currLayer
+			for (int i = 0; i < numKernel; i++)
+				for (int j = 0; j < currLayer.channelNum; j++){
+					constantTimeMatrix(-stepSize, dKernel[i][j]);
+					matrixAdd(currLayer.kernel[i][j],dKernel[i][j] , false);
+
+					// "-" if error = currentLabel - trueLabel;
+					currLayer.bias[i][j] -=  dBias[i][j]/ prevLayer.outMapNum;
+				}
+		}
+
+
+		private static double[][] convolve (double[][]image, double[][]kernel ) // convolution
+		{
+			int iRow = image.length;
+			int iColumn = image[0].length;
+			int kRow = kernel.length;
+			int kColumn = kernel[0].length;
+
+			double[][] result = new double[iRow - kRow + 1 ][ iColumn - kColumn + 1];
+			for (int i = 0; i < iRow - kRow + 1; i++)
+				for (int j = 0; j < iColumn - kColumn + 1; j++)
+				{
+					double tmp = 0;
+					for (int x = i; x < i + kRow; x++)
+						for (int y = j; y < j + kColumn; y++)
+						{
+							tmp += image[x][y] * kernel[x - i][y - j];
+
+						}
+					result[i][j] = tmp;
+
+				}
+			return result;
+		}
+
+		// rotate 180
+		private static double[][] reverseKernel(double[][] kernel){
+			int row = kernel.length;
+			int col = kernel[0].length;
+			double[][] reverse = new double[row][col];
+			for (int i = 0; i < row; i++)
+				for (int j = 0; j< col; j++){
+					reverse[i][j] = kernel[row - i - 1][col - j - 1];
+				}
+			return reverse;
+		}
+
+		// zero padding.
+		private static double[][] zeroPadding (double[][] matrix, int kernelx, int kernely){
+			int row = matrix.length;
+			int col = matrix[0].length;
+			int newRow = row + 2 * kernelx - 2;
+			int newCol = col + 2 * kernely -2;
+			double[][] padding = new double[newRow ][newCol];
+			for (int i = 0; i < newRow; i++)
+				for (int j = 0; j < newCol;j++){
+					if(i > kernelx -2 && j > kernely - 2 && i < newRow  - kernelx + 1 && j< newCol -kernely+1)
+						padding[i][j] = matrix[i - kernelx + 1][j - kernely + 1];
+					else
+						padding[i][j] = 0;
+				}
+			return padding;
+		}
+
+		// matrix addition
+		private static void matrixAdd( double[][] m1, double [][] m2, boolean reLu){
+			int row = m1.length;
+			int col = m1[0].length;
+
+			for (int i = 0 ; i < row; i++)
+				for (int j = 0; j < col; j++)
+				{
+					m1[i][j] += m2[i][j];
+					if (reLu){
+						m1[i][j] = reLu(m1[i][j]);
+					}
+
+				}
+
+		}
+
+		private static double[][] createConstantMatrix(double bias, int row, int col)
+		{
+			double[][] biasM = new double[row][col];
+			for (int i = 0; i < row ;i ++)
+				for (int j = 0; j< col; j++){
+					biasM[i][j] = bias;
+				}
+			return biasM;
+		}
+
+		private static void constantTimeMatrix(double number, double[][] matrix)
+		{
+			int row = matrix.length;
+			int col = matrix[0].length;
+
+			for (int i = 0 ; i < row; i++)
+				for (int j = 0; j < col; j++)
+					matrix[i][j] *= number;
+		}
+
+		private static double avgMatrix(double[][] matrix){
+			double sum = 0.0;
+			for (int i = 0; i < matrix.length; i++)
+				for (int j = 0; j < matrix[0].length; j++)
+					sum += matrix[i][j];
+			return sum/(matrix.length * matrix[0].length) ;
+		}
+
+
+
+		private static double sigmoid(double x) {
+			return (1/( 1 + Math.pow(Math.E,(-1*x))));
+		}
+		private static double reLu(double x){
+			return x > 0 ? x: -x;
+		}
+
+
+
+		public static class LayerBuilder {
+			private List<Layer> mLayers;
+
+			public LayerBuilder() {
+				mLayers = new ArrayList<Layer>();
+			}
+
+			public LayerBuilder(Layer layer) {
+				this();
+				mLayers.add(layer);
+			}
+
+			public LayerBuilder addLayer(Layer layer) {
+				mLayers.add(layer);
+				return this;
+			}
+
+		}
+
+
+	}
+
+
+
+	public static class Layer {
+
+		public String type; //type of layer
+		public double[][][][] kernel;  // kernelNum * channelnum * kernelSize * kernelSize
+		public double[][] bias; // kernelNum * channelNum;
+
+		public Size kernelSize;
+		public int kernelNum  = 5;
+
+
+		public Size outputSize;
+		public int outMapNum;
+
+		public int channelNum = 4;
+
+		public double[][][][] outMaps; // outMapNum * channelNum *  outputSize.x * outputSize.y
+		public double[][][][] error;   // outMapNum * channelNum *  outputSize.x * outputSize.y
+
+		public Layer(){
+
+		}
+
+		//for the input layer, each image get a outMaps of 1 * 4 * imageHeight * imageWidth, here mapSize is the image Size;
+		public static Layer buildInputLayer(Size mapSize) {
+			Layer layer = new Layer();
+			layer.type = "input";
+			layer.outMapNum = 1;//
+			layer.outputSize = mapSize;//
+			layer.initError();
+			return layer;
+		}
+
+		//  currLayer.outMapNum = preLayer.outMapNum * currLayer.kernelNum;
+		//  currLayer.outputSize = new Layer.Size(preLayer.outputSize.x - currLayer.kernelSize.x + 1, preLayer.outputSize.y - currLayer.kernelSize.y + 1);
+		public static Layer buildConvLayer(int outMapNum, int kernelNum, Size kernelSize, Size mapSize) {
+			Layer layer = new Layer();
+			layer.type = "conv";
+			layer.outMapNum = outMapNum;
+			layer.kernelSize = kernelSize;
+			layer.outputSize = mapSize;
+			layer.kernelNum = kernelNum;
+			layer.initOutMaps();
+			layer.initBias();
+			layer.initError();
+			layer.initKernel();
+			return layer;
+		}
+
+		public static Layer buildPoolingLayer(int outMapNum, Size mapSize) {
+			Layer layer = new Layer();
+			layer.outMapNum = outMapNum;
+			layer.outputSize = mapSize;
+			layer.initOutMaps();
+			layer.initError();
+			return layer;
+		}
+
+		public void initOutMaps() {
+			this.outMaps = new double[outMapNum][channelNum][outputSize.x][outputSize.y];
+
+		}
+
+		public  void initError(){
+			this.error = new double[outMapNum][channelNum][outputSize.x][outputSize.y];
+		}
+
+		public void setErrorZero(int i, int j){
+			for (int x = 0; x < outputSize.x; x++ )
+				for (int y = 0; y < outputSize.y; y++)
+					this.error[i][j][x][y] = 0;
+		}
+
+		public void initKernel() {
+//		int fan_out = getOutMapNum() * kernelSize.x * kernelSize.y;
+//		int fan_in = frontMapNum * kernelSize.x * kernelSize.y;
+//		double factor = 2 * Math.sqrt(6 / (fan_in + fan_out));
+			this.kernel = new double[kernelNum][channelNum][kernelSize.x][kernelSize.y];
+			for (int i = 0; i < kernelNum; i++)
+				for (int j = 0; j < channelNum; j++)
+					this.kernel[i][j] = randomMatrix(kernelSize.x, kernelSize.y);
+		}
+		public void initBias(){
+			this.bias = randomMatrix(kernelNum, channelNum);
+		}
+
+
+		public double[][] getKernel(int i, int j) {
+			return kernel[i][j];
+		}
+
+
+
+		public static double[][] randomMatrix(int x, int y) {
+			double[][] matrix = new double[x][y];
+			Random r = new Random();
+			for (int i = 0; i < x; i++) {
+				for (int j = 0; j < y; j++) {
+
+					matrix[i][j] = (r.nextDouble() - 0.5) / 10;
+				}
+			}
+			return matrix;
+		}
+
+		public static class Size{
+			public  int x;
+			public  int y;
+			public Size(int x, int y)
+			{
+				this.x = x;
+				this.y = y;
+			}
+		}
+
+		public static double[][][][] fillArray(Vector<Double> data, int mapNum, int length) {
+			double[][][][] output = new double[mapNum][4][length][length];
+
+			for (int num = 0; num < mapNum; num ++) {
+				int mapStart = num * (4 * length * length);
+				for ( int x = 0; x < length; x ++) {
+					for ( int y = 0; y < length; y ++) {
+						for (int c = 0; c < 4; c++) {
+							output[num][c][x][y] = data.get(mapStart + 4 * (x * length + y) + c);
+						}
+					}
+				}
+			}
+
+			return output;
+		}
+
+		public static Vector<Double> outputArray(double[][][][] map, int mapNum, int length) {
+			int size = mapNum * 4 * length * length;
+
+			Vector<Double> result = new Vector<>(size);
+
+			for (int index = 0; index < size; index++) { // Need to subtract 1 since the last item is the CATEGORY.
+				int num = index / (4 * length * length);
+				int offset = index % (4 * length * length);
+				int x = (offset / 4) / length;
+				int y = (offset / 4) % length;
+				int c = offset % 4;
+
+				result.add(map[num][c][x][y]);
+			}
+
+			return result;
+		}
+
+	}
+
+
+
+	public static class Perceptron {
+		public ArrayList<Weight> inputs = new ArrayList<>();
+		public ArrayList<Weight> outputs = new ArrayList<>();
+
+		public double fx = 1;
+		public double delta = 0;
+		public boolean dropout = false;
+
+		public Perceptron() {
+
+		}
+
+	}
+
+	public static class Weight {
+		public Perceptron input;
+		public Perceptron output;
+
+		public double value;
+		public double delta = 0.0;
+
+		public Weight(double value) {
+			this.value = value;
+		}
+
+
+	}
 
 }
